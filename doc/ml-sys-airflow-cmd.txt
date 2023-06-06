@@ -1,0 +1,346 @@
+Linux System Info
+=================
+
+Machine: DESKTOP-1MLA50M
+system: ubuntu in windows 10
+user: mza
+pass: zahangir 
+
+
+Run Apache Airflow (version: 2.6.1) on Windows 10 without Docker
+================================================================
+Ref: https://medium.com/geekculture/apache-airflow-2-0-complete-installation-with-wsl-explained-71a65d509aba
+
+A) Installation using PostgreSQL
+--------------------------------
+1. Open Microsoft Store, search for "Ubuntu", install it then restart
+2. Open cmd and type "wsl"
+3. Update everything using following commands 
+
+	sudo apt update && sudo apt upgrade
+
+4. Install "pip3" like following commands 
+
+	sudo apt-get install software-properties-common
+	sudo apt-add-repository universe
+	sudo apt-get update
+	sudo apt-get install python3-pip
+
+5. install postgresql database
+
+	sudo apt-get install postgresql postgresql-contrib
+	
+	It will installed like following:
+	Ver Cluster Port Status Owner    Data directory              Log file
+	12  main    5433 down   postgres /var/lib/postgresql/12/main /var/log/postgresql/postgresql-12-main.log
+	
+	To remove a package:
+	sudo apt remove <package name>
+		
+	Checking all packages with postgres  
+	dpkg -l | grep postgres
+	
+	To remove all postgresql 
+	sudo apt-get --purge remove postgresql postgresql-*
+
+	Remove the following folders
+
+		sudo rm -rf /var/lib/postgresql/
+		sudo rm -rf /var/log/postgresql/
+		sudo rm -rf /etc/postgresql/
+	
+	Remove the postgres user:
+		sudo deluser postgres
+
+	Ref: https://askubuntu.com/questions/32730/how-to-remove-postgres-from-my-installation
+	
+6. Start postgresql service
+
+	sudo service postgresql start
+	
+To stop service: 		
+	sudo service postgresql stop 
+To check the satus:
+	sudo service postgresql status 
+
+7. create a user and a database that is airflow is going to use.
+	sudo -u postgres psql
+	
+It will show the following:
+	
+	psql (12.15 (Ubuntu 12.15-0ubuntu0.20.04.1))
+	Type "help" for help.
+	
+	postgres=#
+
+	Now execute the following commands:
+		CREATE DATABASE airflow;
+		CREATE USER airflow WITH PASSWORD 'airflow';
+		GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
+		USE airflow_db; -- or use \c airflow 
+		GRANT ALL ON SCHEMA public TO airflow;
+	
+	Sample executions:
+		postgres=# CREATE DATABASE airflow;
+		CREATE DATABASE
+		postgres=# CREATE USER airflow WITH PASSWORD 'airflow';
+		CREATE ROLE
+		postgres=# GRANT ALL PRIVILEGES ON DATABASE airflow TO airflow;
+		GRANT
+		postgres=# \c airflow
+		You are now connected to database "airflow" as user "postgres".
+		postgres=# GRANT ALL ON SCHEMA public TO airflow;
+		GRANT
+
+	Ref: https://airflow.apache.org/docs/apache-airflow/stable/howto/set-up-database.html
+
+	Some other commands 
+	list of databases
+	postgres=# \l
+	
+	Quit from console
+	postgres=# \q
+	
+	list of users
+	postgres=# \du
+			 
+Login to db with various options:
+	psql -d <db-name> -U <username> -W
+	psql -h <db-address> -d <db-name> -U <username> -W
+	
+	psql -h 127.0.0.1 -d airflow -U airflow -W
+
+The following configuration is working
+	psql -h 127.0.0.1 -p 5433 -d airflow -U airflow -W
+	
+	Login to db after adding the following into `pg_hba.conf` file 
+	local   all             airflow                                 md5
+	
+	psql -U database_name(airflow here)
+	psql -U airflow 
+	
+	
+8. Install the following package which is a prerequisite for airflow connect with PostgreSQL.
+
+	sudo apt install libpq-dev
+	
+	To remove a package:
+	sudo apt remove <package name>
+	
+9. The following commands are installing airflow, PostgreSQL, psycopg2(to connect with PostgreSQL with python), 
+And Setting the path for PostgreSQL.
+	
+	pip3 install apache-airflow['postgresql']
+	pip3 install psycopg2
+	
+	export PATH=$PATH:/home/your_user/.local/bin/
+
+	e.g., export PATH=$PATH:/home/mza/.local/bin/
+
+10. open ~/.bashrc and export the airflow_home directory
+
+	export AIRFLOW_HOME=/home/mza/airflow
+
+And source this to make it effective going forward
+
+	source ~/.bashrc
+
+Or close the terminal and open new terminal
+
+ 
+11. Now we need to change some airflow configuration to connect the airflow with PostgreSQL, 
+the config file you can find inside the airflow folder.
+	
+	vi airflow.cfg
+
+	Note if you can not find the 'airflow' folder or 'airflow/airflow.cfg' in your user directory please type following command
+
+		airflow scheduler 
+
+	it will create that directory then press ctrl+c to cancel it.
+
+Then Do the following changes.
+	executor = LocalExecutor
+	sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@127.0.0.1:5433/airflow
+
+	The following configuration shows an error FATAL: role "airflow" doesn't exist
+	sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@localhost/airflow
+	
+Note-1: Here we are changing the sequential executor to a Local executor which is responsible for parallel execution.
+Note-2: The SQL LIT which is the default database for apache airflow metadata can not handle the parallel execution so we changed the SQL alchemy connection to PostgreSQL.
+
+12. Now initialize your meta database for the first time. Make sure 'postgresql' is running
+
+	airflow db init
+
+B) Run 
+------
+	
+13. Open a terminal with 'wsl' and initialize scheduler 
+	
+	airflow scheduler 
+	
+14. Open another terminal with 'wsl' and run following command 
+	
+	airflow webserver
+
+access the UI on localhost:8080 or 127.0.1:8080 in your browser
+Ideally it will show login window
+
+14. Open another terminal with 'wsl' and add 'admin' user to the sqlite database
+	
+	airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password admin
+
+As There is no default username and password created if you are just using python wheel.
+ref: https://stackoverflow.com/questions/66160780/first-time-login-to-apache-airflow-asks-for-username-and-password-what-is-the-u
+
+
+16. In webrowser, use the following to login
+
+Username: admin
+Password: admin
+
+Now you should be logged in to the system and you will see a grid of DAGs 
+
+
+
+
+
+A2) Installation using default SQLLite 
+--------------------------------------
+Ref: 
+
+1. Open Microsoft Store, search for "Ubuntu", install it then restart
+2. Open cmd and type "wsl"
+3. Update everything using following commands 
+
+	sudo apt update && sudo apt upgrade
+
+4. Install "pip3" like following commands 
+
+	sudo apt-get install software-properties-common
+	sudo apt-add-repository universe
+	sudo apt-get update
+	sudo apt-get install python3-pip
+
+5. Install Airflow using following command
+
+	pip3 install apache-airflow
+
+6. Insert/edit the '/etc/wsl.conf' file and put the following
+
+[automount]
+root = /
+options = "metadata"
+
+7. open ~/.bashrc and export the airflow_home directory
+
+	export AIRFLOW_HOME=/home/mza/airflow
+
+And source this to make it effective going forward
+
+	source ~/.bashrc
+
+Or close the terminal and open new terminal
+
+8. Run the following command 
+
+	airflow info
+
+inspect errors and install missing packages with following 
+
+	pip3 install [package-name], 
+
+restart terminal, try airflow info again
+
+Everything is fine if you see something like Apache Airflow [1.10.12]
+
+B2) Run 
+------
+9. Check the AIRFLOW_HOME
+	
+	echo $AIRFLOW_HOME
+	
+10. initialize database in AIRFLOW_HOME 
+
+	airflow db init
+
+11. Open a terminal with 'wsl' and initialize scheduler 
+	
+	airflow scheduler 
+	
+12. Open another terminal with 'wsl' and run following command 
+	
+	airflow webserver
+
+access the UI on localhost:8080 or 127.0.1:8080 in your browser
+Ideally it will show login window
+
+13. Open another terminal with 'wsl' and add 'admin' user to the sqlite database
+	
+	airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password admin
+
+As There is no default username and password created if you are just using python wheel.
+ref: https://stackoverflow.com/questions/66160780/first-time-login-to-apache-airflow-asks-for-username-and-password-what-is-the-u
+
+
+14. In webrowser, use the following to login
+
+Username: admin
+Password: admin
+
+Now you should logged in to the system
+
+
+Creating virtual environment in AirFlow
+---------------------------------------
+1. We can use PythonVirtualenvOperator to use any code executed by an virtual environment
+In order to use that that we need to install virtualenv
+ 	
+Install virtualenv using following command 
+	# pip3 install virtualenv
+	
+The following commands also installs virtual environment but airflow is expecting as 'virtualenv'	
+Hence the following one is not working 
+	# sudo apt install python3.8-venv 
+	
+If we want to create a name for the virtual environment, the name in this case will be 'venv', we can use the following command 
+Ref: https://towardsdatascience.com/an-introduction-to-apache-airflow-21111bf98c1f
+	# virtualenv -p python venv
+	
+Following command has some problems 
+	# pip3 install airflow[virtualenv] 
+	
+2. create an virtual environment like following
+	/home/mza/python-projects/my_tutorial_1#python3 -m venv ./venv
+
+3. Activate the virtual environment: 
+	in linux environment
+	/home/mza/python-projects/my_tutorial_1>source ./venv/bin/activate
+	
+	in windows:
+	D:\python-projects\my_tutorial_1>.\venv\Scripts\activate
+
+   It will show following
+	(venv) D:\python-projects\my_tutorial_1>
+	
+4. install following packages
+	(venv) D:\python-projects\my_tutorial_1>pip3 install numpy pandas scikit-learn
+	
+5. run python program
+	(venv) D:\python-projects\my_tutorial_1>python main.py
+	
+	
+General Commands
+================
+1) kill a process
+	
+	# kill [signal or option] PID(s)
+	
+2) uninstall package
+		# pip3 uninstall airflow
+		
+3) exit for postgresql
+	postgres=# \q
+	
+	

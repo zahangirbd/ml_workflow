@@ -1,0 +1,7 @@
+cmds
+----
+# kill [signal or option] PID(s)
+# kill 60 
+
+
+
